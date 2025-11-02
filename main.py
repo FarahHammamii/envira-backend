@@ -49,8 +49,8 @@ devices_collection.update_one(
 # MQTT Configuration
 MQTT_BROKER = os.getenv("MQTT_BROKER", "y2b6df88.ala.eu-central-1.emqxsl.com")
 MQTT_PORT = int(os.getenv("MQTT_PORT", 8883))  # Changed to 8883 for TLS
-MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
-MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
+MQTT_USERNAME = os.getenv("MQTT_USERNAME", "farah")  # Add default
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "2003")   # Add default
 
 # WebSocket connections for real-time updates
 active_connections = []
