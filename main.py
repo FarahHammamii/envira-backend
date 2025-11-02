@@ -7,6 +7,7 @@ import json
 import asyncio
 from datetime import datetime
 import logging
+import ssl
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -59,6 +60,7 @@ mqtt_client = None
 async def startup_event():
     """Initialize MQTT connection when app starts"""
     logger.info("Starting Envira Backend...")
+    logger.info(f"🔧 MQTT Configuration - Broker: {MQTT_BROKER}:{MQTT_PORT}, Username: '{MQTT_USERNAME}'")
     asyncio.create_task(connect_mqtt())
 
 @app.on_event("shutdown")
@@ -79,6 +81,16 @@ async def connect_mqtt():
             logger.info("📡 Subscribed to topic: envira/+/+/telemetry")
         else:
             logger.error(f"❌ Failed to connect to MQTT, return code: {rc}")
+            # Add specific error messages
+            error_messages = {
+                1: "Connection refused - incorrect protocol version",
+                2: "Connection refused - invalid client identifier", 
+                3: "Connection refused - server unavailable",
+                4: "Connection refused - bad username or password",
+                5: "Connection refused - not authorised"
+            }
+            logger.error(f"❌ MQTT Error: {error_messages.get(rc, 'Unknown error')}")
+            logger.error(f"🔧 Debug - Username used: '{MQTT_USERNAME}', Broker: {MQTT_BROKER}:{MQTT_PORT}")
 
     def on_message(client, userdata, msg):
         try:
@@ -90,23 +102,39 @@ async def connect_mqtt():
         except Exception as e:
             logger.error(f"❌ MQTT processing error: {e}")
 
-    # Create MQTT client with TLS
+    # Create MQTT client
     mqtt_client = mqtt.Client()
     
-    # Enable TLS for secure connection
-    mqtt_client.tls_set()  # This enables TLS without certificate verification
+    # Enable TLS with better configuration
+    try:
+        mqtt_client.tls_set(cert_reqs=ssl.CERT_NONE)  # Don't verify certificate
+        mqtt_client.tls_insecure_set(True)  # Allow insecure TLS
+        logger.info("🔒 TLS configured (insecure mode - no certificate verification)")
+    except Exception as e:
+        logger.error(f"❌ TLS configuration error: {e}")
+        return
+    
+    # Debug credentials
+    logger.info(f"🔑 Using MQTT credentials - Username: '{MQTT_USERNAME}', Broker: {MQTT_BROKER}:{MQTT_PORT}")
     
     if MQTT_USERNAME and MQTT_PASSWORD:
         mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+        logger.info("🔑 MQTT credentials set successfully")
+    else:
+        logger.error("❌ No MQTT credentials provided in environment variables!")
+        logger.error(f"   Username: '{MQTT_USERNAME}', Password: {'***' if MQTT_PASSWORD else 'None'}")
+        return
     
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
     
     try:
+        logger.info(f"🔗 Attempting MQTT connection to {MQTT_BROKER}:{MQTT_PORT}")
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
         mqtt_client.loop_start()
+        logger.info("🔗 MQTT connection attempt completed")
     except Exception as e:
-        logger.error(f"❌ MQTT connection error: {e}")
+        logger.error(f"❌ MQTT connection exception: {e}")
 
 async def process_telemetry(data):
     """Process incoming sensor data"""
@@ -228,7 +256,8 @@ async def root():
             "latest_data": "/latest/esp32-001",
             "telemetry": "/telemetry/esp32-001",
             "devices": "/devices",
-            "websocket": "/ws"
+            "websocket": "/ws",
+            "debug": "/debug"
         }
     }
 
@@ -242,7 +271,20 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "mqtt_broker": mqtt_status,
         "database": "connected",
-        "active_websockets": len(active_connections)
+        "active_websockets": len(active_connections),
+        "mqtt_broker_url": f"{MQTT_BROKER}:{MQTT_PORT}"
+    }
+
+@app.get("/debug")
+async def debug():
+    """Debug endpoint to check environment variables"""
+    return {
+        "mqtt_broker": MQTT_BROKER,
+        "mqtt_port": MQTT_PORT,
+        "mqtt_username": MQTT_USERNAME,
+        "mqtt_password_length": len(MQTT_PASSWORD) if MQTT_PASSWORD else 0,
+        "mongodb_connected": client is not None,
+        "active_mqtt_connection": mqtt_client.is_connected() if mqtt_client else False
     }
 
 @app.get("/telemetry/{device_id}")
