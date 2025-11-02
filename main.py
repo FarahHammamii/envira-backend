@@ -96,7 +96,10 @@ async def connect_mqtt():
         try:
             logger.info(f"📨 Received MQTT message from topic: {msg.topic}")
             payload = json.loads(msg.payload.decode())
-            asyncio.create_task(process_telemetry(payload))
+            
+            # Process synchronously instead of using asyncio
+            process_telemetry_sync(payload)
+            
         except json.JSONDecodeError as e:
             logger.error(f"❌ JSON decode error: {e}")
         except Exception as e:
@@ -136,8 +139,8 @@ async def connect_mqtt():
     except Exception as e:
         logger.error(f"❌ MQTT connection exception: {e}")
 
-async def process_telemetry(data):
-    """Process incoming sensor data"""
+def process_telemetry_sync(data):
+    """Process incoming sensor data synchronously"""
     try:
         logger.info(f"🔧 Processing telemetry from device: {data.get('device_id')}")
         
@@ -156,11 +159,11 @@ async def process_telemetry(data):
         result = telemetry_collection.insert_one(document)
         logger.info(f"💾 Stored in MongoDB with ID: {result.inserted_id}")
         
-        # Broadcast to all connected WebSocket clients
-        await broadcast_to_websockets({
+        # Broadcast to WebSocket clients
+        asyncio.create_task(broadcast_to_websockets({
             "type": "telemetry",
             "data": document
-        })
+        }))
         
     except Exception as e:
         logger.error(f"❌ Error processing telemetry: {e}")
