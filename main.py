@@ -294,16 +294,16 @@ async def debug():
 async def get_telemetry(device_id: str, limit: int = 100, hours: int = 24):
     """Get historical telemetry data for a device"""
     try:
-        # Calculate time filter
+        # Calculate time filter using processed_at instead of ts
         time_threshold = datetime.utcnow().timestamp() - (hours * 3600)
         
         telemetry = list(telemetry_collection.find(
             {
                 "device_id": device_id,
-                "ts": {"$gte": time_threshold * 1000}  # Convert to milliseconds
+                "processed_at": {"$gte": datetime.fromtimestamp(time_threshold)}
             },
             {"_id": 0}
-        ).sort("ts", -1).limit(limit))
+        ).sort("processed_at", -1).limit(limit))
         
         return {
             "device_id": device_id,
@@ -313,27 +313,6 @@ async def get_telemetry(device_id: str, limit: int = 100, hours: int = 24):
         
     except Exception as e:
         logger.error(f"❌ Error fetching telemetry: {e}")
-        raise HTTPException(status_code=500, detail="Error fetching data")
-
-@app.get("/latest/{device_id}")
-async def get_latest_reading(device_id: str):
-    """Get the latest reading from a device"""
-    try:
-        latest = telemetry_collection.find_one(
-            {"device_id": device_id},
-            {"_id": 0},
-            sort=[("ts", -1)]
-        )
-        
-        if not latest:
-            raise HTTPException(status_code=404, detail="No data found for device")
-        
-        return latest
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Error fetching latest data: {e}")
         raise HTTPException(status_code=500, detail="Error fetching data")
 
 @app.get("/devices")
