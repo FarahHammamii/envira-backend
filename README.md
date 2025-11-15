@@ -1,6 +1,6 @@
-# Envira Backend
+# 🌿 Envira - IoT Environmental Quality Monitoring System
 
-A FastAPI backend for environmental monitoring system that collects sensor data from ESP32 devices via MQTT and provides real-time APIs.
+A comprehensive backend system for monitoring and improving indoor environmental quality using IoT sensors and intelligent recommendations.
 
 ## Architecture
 
