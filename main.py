@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.mqtt_client import connect_mqtt
 from core.database import db
 from routes.root_route import router as root_router
-# telemetry_router removed - using device routes (/devices/{id}/data) and latest routes for telemetry
+from dotenv import load_dotenv
+load_dotenv()
 from routes.device_routes import router as device_router
 from routes.health_routes import router as health_router
 from routes.websocket_route import router as ws_router
