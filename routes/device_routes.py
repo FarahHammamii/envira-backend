@@ -514,7 +514,7 @@ async def delete_device(
 async def get_device_data(
     device_id: str,
     limit: int = Query(default=50, ge=1, le=500, description="Max records to return (1-500)"),
-    hours: int = Query(default=24, ge=1, le=720, description="Time window in hours (1-720)"),
+    hours: Optional[int] = Query(default=None, ge=1, le=8760, description="Time window in hours (optional)"),
     current_user: dict = Depends(get_current_user)
 ):
     """Get historical telemetry data for a device.
@@ -611,7 +611,7 @@ async def get_device_data(
 
         # Convert ObjectId to string in response
         for record in telemetry_data:
-            record["_id"] = to_string(record["_id"])
+            record["id"] = to_string(record["_id"])
 
         return {
             "device_id": device_id,
